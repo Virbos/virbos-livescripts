@@ -1,1 +1,123 @@
+# Package lists for profiles
+workstationPkgs=("firefox" )
 
+
+
+
+
+
+
+
+
+
+
+# Actual code
+
+writeln() {
+	printf "$1\n"
+}
+
+ewriteln() {
+	>&2 writeln "$1"
+}
+
+lower() {
+	printf "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+panic() {
+	ewriteln "$(basename $0): $1"
+	exit 1
+}
+
+invalidinput() {
+	ewriteln "Invalid input '$1'."
+	ewriteln "Press '?' for help."
+	writeln
+}
+
+sgrep() {
+	printf "$2" | grep -Eq "$1"
+}
+
+ask_customhelp() {
+	OLDIFS="$IFS"
+	IFS=','
+	while true; do
+		read -p "$1 [$3] " answer
+		if [ "$answer" = '?' ]; then
+			eval $4
+			continue
+		fi
+		# Check for ^D or Enter
+		if [ -z "$answer" ]; then
+			answer="$3"
+			IFS="$OLDIFS"
+			unset OLDIFS
+			return 0
+		fi
+		# Check input against options
+		for option in $2; do
+			if [ "$(lower $answer)" = "$(lower $option)" ]; then
+				IFS="$OLDIFS"
+				unset OLDIFS
+				answer="$(lower $answer)"
+				return 0
+			fi
+		done
+		# Invalid input
+		invalidinput "$answer"
+		writeln
+	done
+}
+
+ask_yn () {
+	while true; do
+		read -p "$1 [$2] " answer
+		if [ "$answer" = '?' ]; then
+			writeln "Valid options:"
+			writeln " yes, no"
+			continue
+		fi
+		# Check for ^D or Enter
+		if [ -z "$answer" ]; then
+			answer="$2"
+			return 0
+		fi
+		# Check input against options
+		if sgrep "[Yy]([Ee][Ss])?" "$answer"; then
+			answer='y'
+			return 0
+		elif sgrep "[Nn][Oo]?" "$answer"; then
+			answer='n'
+			return 0
+		fi
+	done
+}
+
+CheckRoot () {
+    if [ $(whoami) != "root" ] then
+        panic "Please run the script as root."
+    fi
+}
+
+RmPkgs () {
+    writeln "Removing unused packages...."
+    pacman --noconfirm -Rns $(pacman -Qdtq)
+}
+
+GetDeps () {
+    writeln "Getting script dependencies...."
+    pacman -S --noconfirm cpupower
+    writeln "Setting up dependencies..."
+    systemctl enable cpupower
+    systemctl start cpupower
+}
+
+SetCpu () {
+    echo governor='${1}' > /etc/default/cpupower
+    cpupower frequency-set -g $1
+}
+
+CheckRoot
+GetDeps
