@@ -98,7 +98,7 @@ ask_yn () {
 }
 
 CheckRoot () {
-    if [ $(whoami) != "root" ] then
+    if [ $(whoami) != "root" ]; then
         panic "Please run the script as root."
     fi
 }
